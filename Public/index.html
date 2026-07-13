@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plume</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent-hover: #8b85ff;
+      --accent-dim: rgba(108, 99, 255, 0.15);
+      --text: #e8eaf6;
+      --muted: #8b90b0;
+      --score-high: #4caf82;
+      --score-mid: #f5a623;
+      --score-low: #e05c5c;
+      --user-bubble: #6c63ff;
+      --input-h: 72px;
+      --header-h: 52px;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    #header {
+      height: var(--header-h);
+      min-height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+    }
+
+    #header h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--border);
+      background: transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: background 0.15s, color 0.15s;
+    }
+    .icon-btn:hover { background: var(--surface2); color: var(--text); }
+    .icon-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+    /* ── Settings panel ── */
+    #settings-panel {
+      display: none;
+      position: absolute;
+      top: calc(var(--header-h) + 8px);
+      right: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      width: 260px;
+      z-index: 100;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    #settings-panel.open { display: block; }
+    #settings-panel h3 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+    }
+
+    .setting-row {
+      margin-bottom: 14px;
+    }
+    .setting-row label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .setting-row label span { color: var(--text); font-weight: 600; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    select {
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.88rem;
+      outline: none;
+      cursor: pointer;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* ── Chat area ── */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      scroll-behavior: smooth;
+    }
+    #chat::-webkit-scrollbar { width: 6px; }
+    #chat::-webkit-scrollbar-track { background: transparent; }
+    #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Empty state ── */
+    #empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    #empty-state .logo {
+      font-size: 2.8rem;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+    #empty-state h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    #empty-state p { font-size: 0.9rem; max-width: 340px; }
+
+    .suggestion-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 20px;
+      pointer-events: all;
+    }
+    .chip {
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.83rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--text); background: var(--accent-dim); }
+
+    /* ── Message bubbles ── */
+    .msg-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 760px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .msg-row.user { align-items: flex-end; }
+    .msg-row.assistant { align-items: flex-start; }
+
+    .user-bubble {
+      background: var(--user-bubble);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 18px 18px 4px 18px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      max-width: 85%;
+      word-break: break-word;
+    }
+
+    .assistant-block {
+      width: 100%;
+    }
+
+    .assistant-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .assistant-label .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* Thinking state */
+    .thinking {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .thinking-dots span {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* AI Answer */
+    .answer-text {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text);
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .sources-heading {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 10px;
+    }
+
+    /* Answer header */
+    .answer-header {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .answer-header strong { color: var(--text); }
+
+    /* Source cards */
+    .sources-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .source-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .source-card:hover { border-color: #3e4470; }
+
+    .source-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .source-header:hover { background: rgba(255,255,255,0.02); }
+
+    .source-num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-radius: 6px;
+      padding: 2px 7px;
+      min-width: 24px;
+      text-align: center;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .source-main { flex: 1; min-width: 0; }
+    .source-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+    .source-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .score-badge {
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      letter-spacing: 0.3px;
+    }
+    .score-high { background: rgba(76,175,130,0.15); color: var(--score-high); }
+    .score-mid  { background: rgba(245,166,35,0.15);  color: var(--score-mid);  }
+    .score-low  { background: rgba(224,92,92,0.15);   color: var(--score-low);  }
+    .doc-id-badge {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: monospace;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chevron {
+      font-size: 0.7rem;
+      color: var(--muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    .source-card.open .chevron { transform: rotate(90deg); }
+
+    .source-body {
+      display: none;
+      padding: 0 16px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .source-card.open .source-body { display: block; }
+
+    .source-summary {
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .source-summary-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      padding: 10px 0;
+    }
+    .source-summary-error { font-size: 0.84rem; color: var(--score-low); font-style: italic; padding: 10px 0; }
+
+    .chunk-toggle {
+      background: none;
+      border: none;
+      font-size: 0.78rem;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0;
+      margin-bottom: 8px;
+      transition: color 0.15s;
+    }
+    .chunk-toggle:hover { color: var(--accent); }
+
+    .chunk-text {
+      display: none;
+      font-size: 0.83rem;
+      line-height: 1.6;
+      color: var(--muted);
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .chunk-text.open { display: block; }
+
+    .source-link {
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .source-link:hover { color: var(--accent-hover); text-decoration: underline; }
+
+    /* No results / error */
+    .no-results, .search-error {
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .search-error { border-color: rgba(224,92,92,0.4); color: var(--score-low); }
+
+    /* ── Input bar ── */
+    #input-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+
+    #input-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 10px 10px 16px;
+      transition: border-color 0.2s;
+    }
+    #input-wrap:focus-within { border-color: var(--accent); }
+
+    #query {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      resize: none;
+      font-family: inherit;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    #query::placeholder { color: var(--muted); }
+
+    #send-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #send-btn svg { width: 16px; height: 16px; }
+
+    #input-hint {
+      text-align: center;
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: var(--muted);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Two-column main layout ── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    #chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: none;
+      transition: flex 0.4s ease, border-color 0.4s ease;
+    }
+
+    /* Split mode: triggered when first message is sent */
+    #main.split #chat-panel {
+      flex: 0 0 42%;
+      border-right: 1px solid var(--border);
+    }
+
+    /* ── Results panel (right) ── */
+    #results-panel {
+      flex: 0;
+      min-width: 0;
+      max-width: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      padding: 0;
+      opacity: 0;
+      scroll-behavior: smooth;
+      transition: max-width 0.45s ease, opacity 0.35s ease, padding 0.45s ease;
+    }
+
+    #main.split #results-panel {
+      flex: 1;
+      max-width: 100%;
+      overflow-y: auto;
+      padding: 20px 16px;
+      opacity: 1;
+    }
+    #results-panel::-webkit-scrollbar { width: 6px; }
+    #results-panel::-webkit-scrollbar-track { background: transparent; }
+    #results-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    #results-empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 20px;
+      pointer-events: none;
+    }
+    #results-empty-state .logo {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      opacity: 0.45;
+    }
+    #results-empty-state p { font-size: 0.88rem; max-width: 260px; line-height: 1.6; }
+
+    .results-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .results-query-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 6px 12px;
+      background: var(--surface2);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 4px;
+      title: attr(title);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div id="header">
+    <h1>Plume</h1>
+    <div id="header-right">
+      <button class="icon-btn" id="new-chat-btn" title="New conversation" onclick="clearConversation()">✎</button>
+      <button class="icon-btn" id="settings-btn" title="Settings" onclick="toggleSettings()">⚙</button>
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div id="settings-panel">
+    <h3>Search Settings</h3>
+    <div class="setting-row">
+      <label>Similarity threshold <span id="thresholdVal">0.20</span></label>
+      <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.20"
+             oninput="document.getElementById('thresholdVal').textContent = parseFloat(this.value).toFixed(2)" />
+    </div>
+    <div class="setting-row">
+      <label>Max results</label>
+      <select id="limit">
+        <option value="10">10 results</option>
+        <option value="20" selected>20 results</option>
+        <option value="50">50 results</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Main two-column layout -->
+  <div id="main">
+
+    <!-- LEFT: Chat panel -->
+    <div id="chat-panel">
+
+      <!-- Chat messages -->
+      <div id="chat">
+        <div id="empty-state">
+          <div class="logo">⚖️</div>
+          <h2>Ask about RAG Documents</h2>
+          <p>Ask a question and the AI will answer using indexed documents, with sources shown on the right.</p>
+          <div class="suggestion-chips">
+            <div class="chip" onclick="sendSuggestion(this)">Describe information about new releases</div>
+            <div class="chip" onclick="sendSuggestion(this)">What are the steps needed to releasing information?</div>
+            <div class="chip" onclick="sendSuggestion(this)">Explain product substantial equivalence criteria</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div id="input-bar">
+        <div id="input-wrap">
+          <textarea id="query" rows="1" placeholder="Ask a question about the regulations…"></textarea>
+          <button id="send-btn" onclick="send()" title="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+        <div id="input-hint">Enter to send · Shift+Enter for new line</div>
+      </div>
+
+    </div><!-- /chat-panel -->
+
+    <!-- RIGHT: Results panel -->
+    <div id="results-panel">
+      <div id="results-empty-state">
+        <div class="logo">🔍</div>
+        <p>Search results will appear here, paired with each question you ask</p>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+  <script>
+    const chatEl    = document.getElementById('chat');
+    const queryEl   = document.getElementById('query');
+    const sendBtn   = document.getElementById('send-btn');
+    const emptyEl   = document.getElementById('empty-state');
+    const settingsPanel = document.getElementById('settings-panel');
+    const settingsBtn   = document.getElementById('settings-btn');
+    const resultsPanel  = document.getElementById('results-panel');
+    const resultsEmptyEl = document.getElementById('results-empty-state');
+    const mainEl        = document.getElementById('main');
+
+    // Summary promise cache (persists across conversation turns)
+    let summaryPromises = {};
+    let msgCounter = 0;
+    let isLoading = false;
+    let conversationHistory = [];
+
+    // ── Thinking message rotation ────────────────────────────────────────────
+
+    const THINKING_MESSAGES = [
+      "Searching documents…",
+      "Scanning indexed documents…",
+      "Cross-referencing rag records…",
+      "Reading through the docket…",
+      "Analyzing relevant excerpts…",
+      "Synthesizing findings…",
+      "Almost there…"
+    ];
+
+    const thinkingIntervals = {};
+
+    function startThinkingCycle(labelEl, key) {
+      let idx = 0;
+      labelEl.textContent = THINKING_MESSAGES[0];
+      thinkingIntervals[key] = setInterval(() => {
+        idx = (idx + 1) % THINKING_MESSAGES.length;
+        labelEl.textContent = THINKING_MESSAGES[idx];
+      }, 3000);
+    }
+
+    function stopThinkingCycle(key) {
+      clearInterval(thinkingIntervals[key]);
+      delete thinkingIntervals[key];
+    }
+
+    // ── Auto-grow textarea ───────────────────────────────────────────────────
+
+    queryEl.addEventListener('input', () => {
+      queryEl.style.height = 'auto';
+      queryEl.style.height = Math.min(queryEl.scrollHeight, 140) + 'px';
+    });
+
+    queryEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    // ── Settings toggle ──────────────────────────────────────────────────────
+
+    function toggleSettings() {
+      const open = settingsPanel.classList.toggle('open');
+      settingsBtn.classList.toggle('active', open);
+    }
+
+    document.addEventListener('click', e => {
+      if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+        settingsPanel.classList.remove('open');
+        settingsBtn.classList.remove('active');
+      }
+    });
+
+    // ── Send ─────────────────────────────────────────────────────────────────
+
+    function sendSuggestion(el) {
+      queryEl.value = el.textContent;
+      send();
+    }
+
+    function clearConversation() {
+      conversationHistory = [];
+      summaryPromises = {};
+      msgCounter = 0;
+      // Remove all message rows, keep empty state
+      const rows = chatEl.querySelectorAll('.msg-row');
+      rows.forEach(r => r.remove());
+      emptyEl.style.display = '';
+      // Clear results panel and collapse back to single column
+      const blocks = resultsPanel.querySelectorAll('.results-block');
+      blocks.forEach(b => b.remove());
+      if (resultsEmptyEl) resultsEmptyEl.style.display = '';
+      mainEl.classList.remove('split');
+    }
+
+    async function send() {
+      const query = queryEl.value.trim();
+      if (!query || isLoading) return;
+
+      isLoading = true;
+      sendBtn.disabled = true;
+
+      // Hide the chat empty state so the conversation area is visible,
+      // but do NOT activate the split layout yet — wait for chat to finish.
+      emptyEl.style.display = 'none';
+
+      const id = ++msgCounter;
+
+      // Append user message
+      appendUserMsg(query);
+
+      // Clear input
+      queryEl.value = '';
+      queryEl.style.height = 'auto';
+
+      // Append assistant thinking placeholder
+      const assistantEl = appendThinking(id);
+
+      scrollToBottom();
+
+      const historyToSend = conversationHistory.slice(-10);
+
+      try {
+        // Wait for the LLM answer; all sources come from the chat response only.
+        const res  = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, conversationHistory: historyToSend })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          const msg = data.reason || data.error || 'Request failed.';
+          renderError(assistantEl, id, msg);
+          return;
+        }
+
+        // Now that we have results, reveal the split layout and render everything.
+        mainEl.classList.add('split');
+        renderChatAnswer(assistantEl, id, data.answer || '', data.sources || [], query);
+
+        // Persist both turns in history for follow-up questions
+        conversationHistory.push(
+          { role: 'user',      content: query },
+          { role: 'assistant', content: data.answer || '' }
+        );
+
+      } catch (_) {
+        renderError(assistantEl, id, 'Could not reach the server. Is the API running?');
+      } finally {
+        isLoading = false;
+        sendBtn.disabled = false;
+        scrollToBottom();
+        queryEl.focus();
+      }
+    }
+
+    // ── DOM helpers ──────────────────────────────────────────────────────────
+
+    function appendUserMsg(text) {
+      const row = document.createElement('div');
+      row.className = 'msg-row user';
+      row.innerHTML = `<div class="user-bubble">${escHtml(text)}</div>`;
+      chatEl.appendChild(row);
+    }
+
+    function appendThinking(id) {
+      const row = document.createElement('div');
+      row.className = 'msg-row assistant';
+      row.id = `row-${id}`;
+      row.innerHTML = `
+        <div class="assistant-label"><div class="dot"></div>Plume</div>
+        <div class="assistant-block">
+          <div class="thinking">
+            <div class="thinking-dots"><span></span><span></span><span></span></div>
+            <span class="thinking-label"></span>
+          </div>
+        </div>`;
+      chatEl.appendChild(row);
+      startThinkingCycle(row.querySelector('.thinking-label'), id);
+      return row.querySelector('.assistant-block');
+    }
+
+    // Creates a labelled results block in the right panel and returns its content element.
+    function createResultsBlock(id, query) {
+      if (resultsEmptyEl) resultsEmptyEl.style.display = 'none';
+      const block = document.createElement('div');
+      block.className = 'results-block';
+      block.id = `results-block-${id}`;
+      block.innerHTML = `
+        <div class="results-query-label" title="${escHtml(query)}">${escHtml(query)}</div>
+        <div id="results-content-${id}"></div>`;
+      resultsPanel.appendChild(block);
+      resultsPanel.scrollTop = resultsPanel.scrollHeight;
+      return document.getElementById(`results-content-${id}`);
+    }
+
+    function renderAnswer(el, id, results) {
+      if (results.length === 0) {
+        el.innerHTML = `<div class="no-results">No relevant documents found. Try rephrasing or lowering the similarity threshold in settings.</div>`;
+        return;
+      }
+      el.innerHTML = '';
+    }
+
+    // Renders sources in the right panel immediately, with a pending answer on the left.
+    function renderSimilaritiesPending(el, id, sources, query) {
+      stopThinkingCycle(id);
+      // Left panel: just the pending answer indicator
+      el.innerHTML = `
+        <div class="answer-area" id="answer-${id}">
+          <div class="thinking">
+            <div class="thinking-dots"><span></span><span></span><span></span></div>
+            <span class="thinking-label"></span>
+          </div>
+        </div>`;
+      startThinkingCycle(el.querySelector('.thinking-label'), `${id}-answer`);
+
+      // Right panel: sources paired with this query
+      const contentEl = createResultsBlock(id, query);
+      contentEl.innerHTML = `
+        <div class="sources-heading">Sources (${sources.length})</div>
+        <div class="sources-list">${sources.map((r, i) => buildSourceCard(r, id, i)).join('')}</div>`;
+      sources.forEach((r, i) => loadSummary(r, id, i));
+    }
+
+    // Drops the finished answer (or an error) into the left-panel placeholder.
+    // Also replaces the preliminary search sources with the ones the LLM actually used.
+    function fillAnswer(id, answer, errorMsg, chatSources) {
+      stopThinkingCycle(`${id}-answer`);
+      const area = document.getElementById(`answer-${id}`);
+      if (!area) return;
+      area.innerHTML = errorMsg
+        ? `<div class="search-error">${escHtml(errorMsg)}</div>`
+        : `<div class="answer-text">${escHtml(answer)}</div>`;
+
+      if (!errorMsg && chatSources && chatSources.length > 0) {
+        const contentEl = document.getElementById(`results-content-${id}`);
+        if (contentEl) {
+          contentEl.innerHTML = `
+            <div class="sources-heading">Sources (${chatSources.length})</div>
+            <div class="sources-list">${chatSources.map((r, i) => buildSourceCard(r, id, i)).join('')}</div>`;
+          chatSources.forEach((r, i) => loadSummary(r, id, i));
+        }
+      }
+    }
+
+    function renderChatAnswer(el, id, answer, sources, query) {
+      stopThinkingCycle(id);
+      // Left panel: answer text only
+      el.innerHTML = `<div class="answer-text">${escHtml(answer)}</div>`;
+
+      // Right panel: sources paired with this query
+      if (sources.length > 0) {
+        const contentEl = createResultsBlock(id, query);
+        contentEl.innerHTML = `
+          <div class="sources-heading">Sources (${sources.length})</div>
+          <div class="sources-list">${sources.map((r, i) => buildSourceCard(r, id, i)).join('')}</div>`;
+        sources.forEach((r, i) => loadSummary(r, id, i));
+      }
+    }
+
+    function renderError(el, id, msg) {
+      stopThinkingCycle(id);
+      el.innerHTML = `<div class="search-error">${escHtml(msg)}</div>`;
+    }
+
+    // ── Source card ──────────────────────────────────────────────────────────
+
+    function buildSourceCard(r, msgId, idx) {
+      const cardId  = `card-${msgId}-${idx}`;
+      const title   = r.summaryMetadata?.title || r.documentID;
+      const docUrl  = `http://documents.website.com/document/${encodeURIComponent(r.documentID)}`;
+      const sClass  = scoreClass(r.score);
+
+      return `
+      <div class="source-card" id="${cardId}">
+        <div class="source-header" onclick="toggleSource('${cardId}')">
+          <div class="source-num">${idx + 1}</div>
+          <div class="source-main">
+            <div class="source-title">${escHtml(title)}</div>
+            <div class="source-meta">
+              <span class="score-badge ${sClass}">${(r.score * 100).toFixed(1)}% match</span>
+              <span class="doc-id-badge">${escHtml(r.documentID)}</span>
+            </div>
+          </div>
+          <div class="chevron">▶</div>
+        </div>
+        <div class="source-body">
+          <div id="summary-${msgId}-${idx}" class="source-summary">
+            <div class="source-summary-loading"><span class="spinner"></span> Loading summary…</div>
+          </div>
+          <button class="chunk-toggle" onclick="toggleChunk('${cardId}')">▶ Show matched text</button>
+          <div class="chunk-text" id="chunk-${cardId}">${escHtml(r.text)}</div>
+          <a class="source-link" href="${docUrl}" target="_blank" rel="noopener noreferrer">🔗 View on website</a>
+        </div>
+      </div>`;
+    }
+
+    function toggleSource(cardId) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      card.classList.toggle('open');
+    }
+
+    function toggleChunk(cardId) {
+      const chunk  = document.getElementById(`chunk-${cardId}`);
+      const btn    = document.querySelector(`#${cardId} .chunk-toggle`);
+      if (!chunk) return;
+      const open = chunk.classList.toggle('open');
+      if (btn) btn.textContent = open ? '▼ Hide matched text' : '▶ Show matched text';
+    }
+
+    // ── Summary loading ──────────────────────────────────────────────────────
+
+    function loadSummary(r, msgId, idx) {
+      const docID = r.documentID;
+      if (!summaryPromises[docID]) {
+        summaryPromises[docID] = fetch(`/api/documents/${encodeURIComponent(docID)}/summary`)
+          .then(res => { if (!res.ok) throw new Error(); return res.json(); })
+          .then(d => d.summary);
+      }
+      const el = document.getElementById(`summary-${msgId}-${idx}`);
+      summaryPromises[docID]
+        .then(text => { if (el) el.innerHTML = `<p>${escHtml(text)}</p>`; })
+        .catch(() => { if (el) el.innerHTML = `<div class="source-summary-error">Summary unavailable</div>`; });
+    }
+
+    // ── Utilities ────────────────────────────────────────────────────────────
+
+    function scoreClass(s) {
+      if (s >= 0.75) return 'score-high';
+      if (s >= 0.50) return 'score-mid';
+      return 'score-low';
+    }
+
+    function scrollToBottom() {
+      chatEl.scrollTop = chatEl.scrollHeight;
+      resultsPanel.scrollTop = resultsPanel.scrollHeight;
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Focus input on load
+    queryEl.focus();
+  </script>
+
+</body>
+</html>

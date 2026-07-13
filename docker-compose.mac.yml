@@ -1,0 +1,52 @@
+version: "3.8"
+
+# Mac / Apple Silicon compose file.
+#
+# Ollama runs NATIVELY on the host (not in Docker) so it can use Metal/MPS.
+# Only Qdrant and the Vapor app run in containers.
+#
+# Prerequisites:
+#   1. Install Ollama: https://ollama.com
+#   2. Pull models:
+#        ollama pull nomic-embed-text
+#        ollama pull gemma4:12b
+#   3. Make sure Ollama is running:  ollama serve
+#
+# Then start the stack:
+#   docker compose -f docker-compose.mac.yml up --build -d
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: vapor-rag
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      # host.docker.internal resolves to the Mac host from inside a Docker container,
+      # so the app reaches Ollama running natively on your machine.
+      EMBEDDER_URL: http://host.docker.internal:11434/v1
+      LLM_URL: http://host.docker.internal:11434/v1
+      EMBEDDER_MODEL: nomic-embed-text
+      LLM_MODEL: gemma4:12b
+      EMBEDDING_DIMENSION: "768"
+      EMBEDDING_BATCH_SIZE: "20"
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:

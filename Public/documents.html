@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Library — Plume</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent-hover: #8b85ff;
+      --accent-dim: rgba(108, 99, 255, 0.15);
+      --text: #e8eaf6;
+      --muted: #8b90b0;
+      --score-high: #4caf82;
+      --score-low: #e05c5c;
+      --header-h: 52px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    #header {
+      height: var(--header-h);
+      min-height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+
+    #header-left { display: flex; align-items: center; gap: 12px; }
+
+    #logo { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
+
+    #page-title {
+      font-size: 14px;
+      color: var(--muted);
+      padding-left: 12px;
+      border-left: 1px solid var(--border);
+    }
+
+    #nav-link {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      transition: all 0.15s;
+    }
+    #nav-link:hover { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+
+    /* ── Main ── */
+    #main {
+      flex: 1;
+      padding: 24px 20px;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    #search-wrap { flex: 1; min-width: 220px; position: relative; }
+
+    #search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 9px 12px 9px 36px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #search-input:focus { border-color: var(--accent); }
+    #search-input::placeholder { color: var(--muted); }
+
+    #type-filter {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    #type-filter:focus { border-color: var(--accent); }
+
+    #stats-badge { font-size: 13px; color: var(--muted); white-space: nowrap; }
+    #stats-badge span { color: var(--accent); font-weight: 600; }
+
+    /* ── State (loading / empty / error) ── */
+    #state-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 12px;
+      color: var(--muted);
+    }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .state-icon { font-size: 32px; }
+    .state-text { font-size: 15px; }
+    .state-sub  { font-size: 13px; opacity: 0.7; }
+
+    /* ── Table ── */
+    #table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+    thead th {
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+      cursor: pointer;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr.expanded { background: var(--surface2); }
+
+    td { padding: 12px 16px; vertical-align: middle; }
+
+    .doc-id {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: var(--accent);
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .doc-title {
+      color: var(--text);
+      max-width: 340px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .doc-title.no-title { color: var(--muted); font-style: italic; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .badge-rule  { background: rgba(108,99,255,0.2);  color: var(--accent-hover); }
+    .badge-notice{ background: rgba(245,166,35,0.2);  color: #f5a623; }
+    .badge-prule { background: rgba(76,175,130,0.2);  color: var(--score-high); }
+    .badge-other { background: rgba(139,144,176,0.2); color: var(--muted); }
+
+    .chunk-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .date-cell { color: var(--muted); white-space: nowrap; font-size: 12px; }
+
+    .comment-open   { color: var(--score-high); font-size: 12px; }
+    .comment-closed { color: var(--muted);      font-size: 12px; }
+
+    .expand-arrow { color: var(--muted); font-size: 12px; transition: transform 0.2s; }
+    tr.expanded .expand-arrow { transform: rotate(90deg); }
+
+    .reg-link {
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .reg-link:hover { text-decoration: underline; }
+
+    /* ── Expanded Detail Row ── */
+    .detail-row td {
+      padding: 0;
+      background: #161924;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-inner {
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 8px 24px;
+    }
+
+    .meta-pair { display: flex; flex-direction: column; gap: 2px; }
+
+    .meta-key {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
+
+    .meta-val { font-size: 13px; color: var(--text); word-break: break-word; }
+    .meta-val.mono { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; }
+
+    .meta-bool-yes { color: var(--score-high); font-size: 13px; }
+    .meta-bool-no  { color: var(--muted);      font-size: 13px; }
+
+    .detail-footer {
+      padding: 10px 20px 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-sm {
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn-sm:hover { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div id="header">
+    <div id="header-left">
+      <div id="logo">Plume</div>
+      <div id="page-title">Document Library</div>
+    </div>
+    <a href="/" id="nav-link">&#8592; Chat Interface</a>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+
+    <div id="toolbar">
+      <div id="search-wrap">
+        <svg id="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input id="search-input" type="text" placeholder="Filter by ID, title, agency, docket…" autocomplete="off" />
+      </div>
+      <select id="type-filter">
+        <option value="">All types</option>
+      </select>
+      <div id="stats-badge">Showing <span id="visible-count">—</span> of <span id="total-count">—</span></div>
+    </div>
+
+    <div id="content">
+      <div id="state-wrap">
+        <div class="spinner"></div>
+        <div class="state-text">Loading documents…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let allDocs = [];
+
+    // ── Load ─────────────────────────────────────────────────────────────────
+    async function loadDocuments() {
+      try {
+        const res = await fetch('/api/documents');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        allDocs = data.documents || [];
+        populateTypeFilter();
+        renderTable(allDocs);
+        updateCounts(allDocs.length, allDocs.length);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // ── Type filter dropdown ──────────────────────────────────────────────────
+    function populateTypeFilter() {
+      const types = [...new Set(
+        allDocs.map(d => d.summaryMetadata?.documentType).filter(Boolean)
+      )].sort();
+      const sel = document.getElementById('type-filter');
+      types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        sel.appendChild(opt);
+      });
+    }
+
+    // ── Filter (client-side only, no API calls) ───────────────────────────────
+    function applyFilter() {
+      const q = document.getElementById('search-input').value.toLowerCase().trim();
+      const typeVal = document.getElementById('type-filter').value;
+
+      const filtered = allDocs.filter(d => {
+        const rm = d.summaryMetadata || {};
+        const haystack = [
+          d.documentID,
+          rm.title,
+          rm.agencyId,
+          rm.docketId,
+          rm.frDocNum,
+          rm.documentType,
+          rm.subtype,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return (!q || haystack.includes(q)) &&
+               (!typeVal || rm.documentType === typeVal);
+      });
+
+      renderTable(filtered);
+      updateCounts(filtered.length, allDocs.length);
+    }
+
+    document.getElementById('search-input').addEventListener('input', applyFilter);
+    document.getElementById('type-filter').addEventListener('change', applyFilter);
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function renderTable(docs) {
+      const content = document.getElementById('content');
+
+      if (allDocs.length === 0) {
+        content.innerHTML = `
+          <div id="state-wrap">
+            <div class="state-icon">📭</div>
+            <div class="state-text">No documents indexed yet</div>
+            <div class="state-sub">Use the indexing API to add documents to the vector database.</div>
+          </div>`;
+        return;
+      }
+
+      if (docs.length === 0) {
+        content.innerHTML = `
+          <div id="state-wrap">
+            <div class="state-icon">🔍</div>
+            <div class="state-text">No documents match your filter</div>
+            <div class="state-sub">Try a different search term or clear the filter.</div>
+          </div>`;
+        return;
+      }
+
+      content.innerHTML = `
+        <div id="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Document ID</th>
+                <th>Title</th>
+                <th>Agency</th>
+                <th>Type</th>
+                <th>Posted</th>
+                <th>Comments</th>
+                <th>Chunks</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              ${docs.map(buildRow).join('')}
+            </tbody>
+          </table>
+        </div>`;
+
+      document.querySelectorAll('tr.doc-row').forEach(tr => {
+        tr.addEventListener('click', e => {
+          if (e.target.closest('a')) return;
+          toggleExpand(tr.dataset.id);
+        });
+      });
+    }
+
+    function buildRow(d) {
+      const rm = d.summaryMetadata || {};
+      const title = rm.title || null;
+      const openComment = rm.openForComment;
+      const regUrl = rm.docketId
+        ? `https://www.regulations.gov/document/${encodeURIComponent(d.documentID)}`
+        : null;
+
+      const commentHtml = openComment === true
+        ? '<span class="comment-open">&#9679; Open</span>'
+        : openComment === false
+          ? '<span class="comment-closed">Closed</span>'
+          : '<span class="comment-closed">—</span>';
+
+      return `
+        <tr class="doc-row" data-id="${escHtml(d.documentID)}">
+          <td><span class="expand-arrow">&#9656;</span></td>
+          <td><div class="doc-id" title="${escHtml(d.documentID)}">${escHtml(d.documentID)}</div></td>
+          <td><div class="doc-title${title ? '' : ' no-title'}" title="${escHtml(title || '')}">${escHtml(title || 'No title')}</div></td>
+          <td>${escHtml(rm.agencyId || '—')}</td>
+          <td>${rm.documentType ? `<span class="badge ${typeBadge(rm.documentType)}">${escHtml(rm.documentType)}</span>` : '—'}</td>
+          <td class="date-cell">${formatDate(rm.postedDate)}</td>
+          <td>${commentHtml}</td>
+          <td class="chunk-count">${d.chunkCount}</td>
+          <td>${regUrl ? `<a class="reg-link" href="${regUrl}" target="_blank" rel="noopener">&#8599; regs.gov</a>` : '—'}</td>
+        </tr>`;
+    }
+
+    // ── Expand / collapse ─────────────────────────────────────────────────────
+    function toggleExpand(docID) {
+      const tr = document.querySelector(`tr.doc-row[data-id="${CSS.escape(docID)}"]`);
+      if (!tr) return;
+      const existing = document.getElementById(`detail-${docID}`);
+      if (existing) {
+        existing.remove();
+        tr.classList.remove('expanded');
+        return;
+      }
+
+      tr.classList.add('expanded');
+      const doc = allDocs.find(d => d.documentID === docID);
+      if (!doc) return;
+
+      const detailTr = document.createElement('tr');
+      detailTr.className = 'detail-row';
+      detailTr.id = `detail-${docID}`;
+      const td = document.createElement('td');
+      td.colSpan = 9;
+      td.innerHTML = buildDetail(doc);
+      detailTr.appendChild(td);
+      tr.insertAdjacentElement('afterend', detailTr);
+    }
+
+    function buildDetail(d) {
+      const rm = d.summaryMetadata || {};
+      const meta = d.metadata || {};
+      const regUrl = rm.docketId
+        ? `https://www.regulations.gov/document/${encodeURIComponent(d.documentID)}`
+        : null;
+
+      const fields = [
+        { key: 'Document ID',       val: d.documentID,        mono: true },
+        { key: 'Title',             val: rm.title },
+        { key: 'Agency',            val: rm.agencyId },
+        { key: 'Docket ID',         val: rm.docketId,         mono: true },
+        { key: 'FR Doc Number',     val: rm.frDocNum,         mono: true },
+        { key: 'Object ID',         val: rm.objectId,         mono: true },
+        { key: 'Document Type',     val: rm.documentType },
+        { key: 'Subtype',           val: rm.subtype },
+        { key: 'Posted Date',       val: rm.postedDate        ? formatDate(rm.postedDate) : null },
+        { key: 'Last Modified',     val: rm.lastModifiedDate  ? formatDate(rm.lastModifiedDate) : null },
+        { key: 'Comment Start',     val: rm.commentStartDate  ? formatDate(rm.commentStartDate) : null },
+        { key: 'Comment End',       val: rm.commentEndDate    ? formatDate(rm.commentEndDate) : null },
+        { key: 'Open for Comment',  val: rm.openForComment    != null ? rm.openForComment  : null, bool: true },
+        { key: 'Allow Late Comments', val: rm.allowLateComments != null ? rm.allowLateComments : null, bool: true },
+        { key: 'Withdrawn',         val: rm.withdrawn         != null ? rm.withdrawn       : null, bool: true },
+        { key: 'Chunks Indexed',    val: String(d.chunkCount) },
+        ...Object.entries(meta).map(([k, v]) => ({ key: k, val: v })),
+      ].filter(f => f.val != null && f.val !== '');
+
+      const pairs = fields.map(f => {
+        const valHtml = f.bool === true
+          ? `<span class="${f.val ? 'meta-bool-yes' : 'meta-bool-no'}">${f.val ? 'Yes' : 'No'}</span>`
+          : `<span class="meta-val${f.mono ? ' mono' : ''}">${escHtml(String(f.val))}</span>`;
+        return `<div class="meta-pair"><div class="meta-key">${escHtml(f.key)}</div>${valHtml}</div>`;
+      }).join('');
+
+      const footer = regUrl
+        ? `<div class="detail-footer"><a class="btn-sm" href="${regUrl}" target="_blank" rel="noopener">&#8599; View on regulations.gov</a></div>`
+        : '';
+
+      return `<div class="detail-inner">${pairs}</div>${footer}`;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function updateCounts(visible, total) {
+      document.getElementById('visible-count').textContent = visible;
+      document.getElementById('total-count').textContent = total;
+    }
+
+    function showError(msg) {
+      document.getElementById('content').innerHTML = `
+        <div id="state-wrap">
+          <div class="state-icon">&#9888;</div>
+          <div class="state-text">Failed to load documents</div>
+          <div class="state-sub">${escHtml(msg)}</div>
+        </div>`;
+    }
+
+    function formatDate(str) {
+      if (!str) return '—';
+      try {
+        return new Date(str).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      } catch { return str; }
+    }
+
+    function typeBadge(type) {
+      if (!type) return 'badge-other';
+      const t = type.toLowerCase();
+      if (t === 'rule') return 'badge-rule';
+      if (t === 'notice') return 'badge-notice';
+      if (t === 'proposed rule' || t === 'prule') return 'badge-prule';
+      return 'badge-other';
+    }
+
+    function escHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    loadDocuments();
+  </script>
+</body>
+</html>

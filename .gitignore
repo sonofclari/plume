@@ -1,0 +1,8 @@
+.build/
+.env
+.swiftpm/
+__pycache__/
+*.pyc
+fda_rules.json
+fda_rules.csv
+.DS_Store
